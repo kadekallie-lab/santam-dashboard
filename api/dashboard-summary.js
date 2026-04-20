@@ -17,27 +17,38 @@ export default async function handler(req, res) {
     let quotesPending = 0;
     let quoteValue = 0;
     let activeJobs = 0;
+    let inProgress = 0;
+    let readyToInvoice = 0;
     let unpaidInvoices = 0;
+    let unpaidInvoiceValue = 0;
 
     records.forEach((record) => {
       const fields = record.fields || {};
+      const jobStatus = fields["Job Status"];
+      const paymentStatus = fields["Payment Status"];
+      const quoteAmount = fields["Quote Amount"] || 0;
+      const invoiceAmount = fields["Invoice Amount"] || 0;
 
-      if (fields["Job Status"] === "Quote Sent") {
+      if (jobStatus === "Quote Sent") {
         quotesPending++;
-        quoteValue += fields["Quote Amount"] || 0;
+        quoteValue += quoteAmount;
       }
 
-      if (
-        ["Approved", "Scheduled", "In Progress"].includes(fields["Job Status"])
-      ) {
+      if (["Approved", "Scheduled", "In Progress"].includes(jobStatus)) {
         activeJobs++;
       }
 
-      if (
-        fields["Job Status"] === "Invoiced" &&
-        fields["Payment Status"] === "Not Paid"
-      ) {
+      if (jobStatus === "In Progress") {
+        inProgress++;
+      }
+
+      if (jobStatus === "Completed" && !invoiceAmount) {
+        readyToInvoice++;
+      }
+
+      if (jobStatus === "Invoiced" && paymentStatus === "Not Paid") {
         unpaidInvoices++;
+        unpaidInvoiceValue += invoiceAmount;
       }
     });
 
@@ -45,7 +56,10 @@ export default async function handler(req, res) {
       quotesPending,
       quoteValue,
       activeJobs,
+      inProgress,
+      readyToInvoice,
       unpaidInvoices,
+      unpaidInvoiceValue,
     });
   } catch (error) {
     res.status(500).json({
